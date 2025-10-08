@@ -1,0 +1,34 @@
+paths:
+  raw: data/raw/dataset.csv
+  interim: data/interim/data_clean.parquet
+  processed: data/processed/data_model.parquet
+  report_html: reports/index.html
+  report_css: reports/assets/css/report.css
+
+eda:
+  sample_frac: 1.0
+  target: "target"
+  id_cols: ["id"]
+
+clean:
+  drop_na_thresh: 0.95
+  outlier_z: 4.0
+
+preprocess:
+  numeric_imputer: "median"
+  categorical_imputer: "most_frequent"
+  scale_numeric: true
+  one_hot: true
+  test_size: 0.2
+  random_state: 42
+
+model:
+  algorithm: "logreg"
+  logreg:
+    C: 1.0
+    penalty: "l2"
+    max_iter: 500
+  rf:
+    n_estimators: 300
+    max_depth: 10
+  scoring: "roc_auc"
