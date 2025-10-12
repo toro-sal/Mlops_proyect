@@ -1,0 +1,21 @@
+stages:
+  eda_full:
+    cmd: >
+      python -m src.run_full_eda
+      --raw data/enriched/insurance_company_enriched.csv
+      --clean-out data/interim/insurance_clean.csv
+      --raw-report reports/eda_raw.html
+      --clean-report reports/eda_clean.html
+      --raw-fig-dir reports/figures/raw
+      --clean-fig-dir reports/figures/clean
+    deps:
+      - data/enriched/insurance_company_enriched.csv
+      - src/data_proc/data_cleaner.py
+      - src/eda/eda_reporter.py
+      - src/run_full_eda.py
+    outs:
+      - data/interim/insurance_clean.csv
+      - reports/eda_raw.html
+      - reports/eda_clean.html
+      - reports/figures/raw
+      - reports/figures/clean

@@ -44,4 +44,32 @@ python -m src.run_eda \
 ```
 
 Utiliza los flags opcionales (`--target`, `--id-cols`, `--datetime-cols`, `--cat-cols`, etc.) para ajustar cada comando a tus columnas objetivo o requerimientos de análisis.
+
+
+DVC Pipeline
+------------
+
+1. Instala DVC en tu entorno (`pip install dvc`).
+2. Inicializa el repositorio si todavía no lo hiciste:
+   ```bash
+   dvc init
+   ```
+3. (Opcional) Versiona los datos crudos/enriquecidos con DVC:
+   ```bash
+   dvc add data/enriched/insurance_company_enriched.csv
+   git add data/enriched/insurance_company_enriched.csv.dvc .gitignore
+   ```
+4. Reproduce la tubería completa de EDA y limpieza:
+   ```bash
+   dvc repro eda_full
+   ```
+   Este stage ejecuta `src.run_full_eda` y actualiza:
+   - `data/interim/insurance_clean.csv`
+   - `reports/eda_raw.html`
+   - `reports/eda_clean.html`
+   - `reports/figures/raw/`
+   - `reports/figures/clean/`
+5. Sincroniza artefactos con tu remoto de datos cuando sea necesario (`dvc remote add`, `dvc push`, `dvc pull`).
+
+Consulta `dvc.yaml` para conocer dependencias y salidas de cada stage; puedes extenderlo con pasos adicionales de preprocesamiento o modelado según avances en el proyecto.
    

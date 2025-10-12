@@ -130,28 +130,72 @@ class EDAReport:
             desc["pct_zeros"] = (self.df[self.num_cols] == 0).mean()
             self.summary_numeric_ = desc
 
-        # correlación entre FEATURES numéricas (no con el target)
+        # correlación entre FEATURES numéricas (no con el target) usando solo columnas realmente numéricas
         if len(self.num_cols) >= 2:
-            self.corr_ = self.df[self.num_cols].corr(method="spearman")
+            num_df = self.df[self.num_cols].select_dtypes(include=[np.number])
+            if num_df.shape[1] >= 2:
+                self.corr_ = num_df.corr(method="spearman")
 
-        # VIF
+        # VIF (robusto)
         if HAS_SM and len(self.num_cols) >= 2:
             X = self.df[self.num_cols].dropna()
             if len(X) > 0:
-                Xc = sm.add_constant(X)
-                rows = []
-                for i, col in enumerate(Xc.columns):
-                    if col == "const":
-                        continue
-                    try:
-                        rows.append({"variable": col, "VIF": variance_inflation_factor(Xc.values, i)})
-                    except Exception:
-                        pass
-                if rows:
-                    self.vif_ = pd.DataFrame(rows).sort_values("VIF", ascending=False)
+                self.vif_ = self._compute_vif_safe(X)
 
         return self
 
+    # -------------------- VIF robusto --------------------
+    def _compute_vif_safe(self, X: pd.DataFrame, drop_high_corr=True, corr_threshold=0.999):
+        """
+        Calcula VIF de forma robusta:
+        - Quita constantes o columnas con varianza ~0
+        - Quita duplicadas exactas
+        - (opcional) Quita una de cada par con |corr|>=corr_threshold (evita R^2≈1)
+        Devuelve un DataFrame con columnas: variable, VIF
+        """
+        if not HAS_SM:
+            return pd.DataFrame(columns=["variable", "VIF"])
+
+        Z = X.select_dtypes(include=[np.number]).copy()
+        Z = Z.replace([np.inf, -np.inf], np.nan).dropna(axis=0)
+
+        # 1) constantes/varianza 0
+        var0 = [c for c in Z.columns if Z[c].std(ddof=0) == 0]
+        if var0:
+            Z = Z.drop(columns=var0)
+
+        # 2) duplicadas exactas
+        if Z.shape[1] > 1:
+            dup_mask = Z.T.duplicated(keep="first")
+            Z = Z.loc[:, ~dup_mask]
+
+        # 3) (opcional) poda por correlación extrema
+        if drop_high_corr and Z.shape[1] > 1:
+            corr = Z.corr().abs()
+            upper = corr.where(np.triu(np.ones(corr.shape), k=1).astype(bool))
+            to_drop = [col for col in upper.columns if any(upper[col] >= corr_threshold)]
+            if to_drop:
+                Z = Z.drop(columns=to_drop)
+
+        if Z.shape[1] <= 1:
+            return pd.DataFrame(columns=["variable", "VIF"])
+
+        Zc = sm.add_constant(Z)
+        rows = []
+        for i, col in enumerate(Zc.columns):
+            if col == "const":
+                continue
+            try:
+                vif_val = variance_inflation_factor(Zc.values, i)
+                if np.isfinite(vif_val):
+                    rows.append({"variable": col, "VIF": float(vif_val)})
+            except Exception:
+                # si statsmodels falla por algún motivo, lo saltamos
+                continue
+
+        return pd.DataFrame(rows).sort_values("VIF", ascending=False)
+
+    # -------------------- Executive summary --------------------
     def build_executive_summary_text(self, max_examples=5):
         lines = []
         # 1) Contexto general
@@ -165,7 +209,7 @@ class EDAReport:
         # 2) Calidad de datos
         high_missing = []
         if self.missing_ is not None:
-            high_missing = self.missing_[self.missing_["%NA"] >= self.missing_flag].index.tolist()
+            high_missing = self.missing_["%NA"][self.missing_["%NA"] >= self.missing_flag].index.tolist()
         lines.append(f"Columnas con NA > {int(self.missing_flag*100)}%: {len(high_missing)}" + (f" | Ejemplos: {', '.join(high_missing[:max_examples])}" if high_missing else ""))
 
         # 3) Sesgo, ceros y VIF
@@ -264,6 +308,7 @@ class EDAReport:
         </head>
         <body>
             {self._header()}
+            {self._section_exec_summary() if self.show_exec_summary_in_html else ""}
             {self._section_missing()}
             {self._section_univariate()}
             {self._section_corr_vif()}
@@ -319,12 +364,17 @@ class EDAReport:
         .muted{color:#b7bdd9;font-size:0.95rem}
         .table{width:100%;border-collapse:collapse;border-spacing:0;font-size:0.9rem}
         .table th,.table td{border-bottom:1px dashed #2a356e;padding:8px 6px;text-align:left}
+        .table th{position:sticky;top:0;background:#121735;z-index:1}
         .kpi{display:flex;gap:12px;flex-wrap:wrap}
         .pill{background:#0f1a4a;border:1px solid #2941a8;color:#c9d3ff;border-radius:999px;padding:6px 10px;font-size:.85rem}
         img{max-width:100%;height:auto;border-radius:12px;border:1px solid #243071}
         .caption{color:#9aa4d6;font-size:0.85rem;margin-top:6px}
         code{background:#0f1a4a;padding:2px 6px;border-radius:8px}
         pre.execsum{white-space:pre-wrap;background:#0f1a4a;border:1px solid #2941a8;border-radius:12px;padding:12px;color:#e8eaf3}
+
+        /* NUEVO: contenedor con scroll para tablas grandes */
+        .scrollbox{overflow:auto;max-width:100%;max-height:60vh;border:1px solid #1f2750;border-radius:12px;}
+        .scrollbox table{width:max-content;min-width:100%;}
         </style>
         """
 
@@ -360,7 +410,9 @@ class EDAReport:
         <div class='card'>
           <h2>Faltantes</h2>
           <p class='muted'>Porcentaje de NA por columna (top 30).</p>
-          {self._tbl_html(self.missing_)}
+          <div class='scrollbox'>
+            {self._tbl_html(self.missing_)}
+          </div>
         </div>
         """
 
@@ -376,7 +428,9 @@ class EDAReport:
             <div class='card'>
               <h2>Univariado — Numéricas</h2>
               <p class='muted'>Resumen estadístico (incluye skew, kurtosis, % ceros).</p>
-              {self._tbl_html(self.summary_numeric_.round(3))}
+              <div class='scrollbox'>
+                {self._tbl_html(self.summary_numeric_.round(3))}
+              </div>
             </div>
             """)
             imgs = []
@@ -405,19 +459,25 @@ class EDAReport:
         if self.corr_ is not None:
             blocks.append(f"""
             <div class='card'>
-              <h2>Correlaciones (Spearman) entre features numéricas</h2>
-              <p class='muted'>Matriz mostrada como tabla (valores redondeados).</p>
-              {self._tbl_html(self.corr_.round(3))}
+            <h2>Correlaciones (Spearman) entre features numéricas</h2>
+            <p class='muted'>Matriz mostrada como tabla (valores redondeados).</p>
+            <div class='scrollbox'>
+                {self._tbl_html(self.corr_.round(3))}
+            </div>
             </div>
             """)
-        if self.vif_ is not None:
+
+        if self.vif_ is not None and len(self.vif_) > 0:
             blocks.append(f"""
             <div class='card'>
-              <h2>VIF</h2>
-              <p class='muted'>Factores de inflación de varianza para detectar multicolinealidad.</p>
-              {self._tbl_html(self.vif_.round(3))}
+            <h2>VIF</h2>
+            <p class='muted'>Factores de inflación de varianza para detectar multicolinealidad.</p>
+            <div class='scrollbox'>
+                {self._tbl_html(self.vif_.round(3))}
+            </div>
             </div>
             """)
+
         return "".join(blocks) if blocks else ""
 
     def _section_target(self):
@@ -432,7 +492,7 @@ class EDAReport:
                 r, p = stats.spearmanr(self.df[c], y, nan_policy="omit")
                 rows.append({"feature": c, "spearman_r": r, "p_value": p})
             tbl = pd.DataFrame(rows).sort_values("spearman_r", ascending=False)
-            blocks.append("<p class='muted'>Correlaciones (Spearman) entre variables numéricas y el target.</p>" + self._tbl_html(tbl.round(4)))
+            blocks.append("<p class='muted'>Correlaciones (Spearman) entre variables numéricas y el target.</p><div class='scrollbox'>" + self._tbl_html(tbl.round(4)) + "</div>")
 
             imgs = []
             for c in self._iter_limit(list(tbl["feature"])):
@@ -473,7 +533,7 @@ class EDAReport:
                     recs.append("Variables fuertemente sesgadas (|skew| alto). Considera log/yeo-johnson o modelos robustos.")
             if self.missing_ is not None and (self.missing_["%NA"] > self.missing_flag).any():
                 recs.append("Columnas con NA elevados: evaluar descartar o imputar por grupo/algoritmo.")
-            if self.vif_ is not None and (self.vif_["VIF"] > self.vif_flag).any():
+            if self.vif_ is not None and len(self.vif_) and (self.vif_["VIF"] > self.vif_flag).any():
                 recs.append("Multicolinealidad alta (VIF). Considera eliminar/combinar variables.")
 
             if not recs:
