@@ -1,14 +1,14 @@
 paths:
-  raw: data/raw/dataset.csv
+  raw: data/enriched/insurance_company_enriched.csv
   interim: data/interim/data_clean.parquet
   processed: data/processed/data_model.parquet
-  report_html: reports/index.html
+  report_html: reports/eda_clean.html
   report_css: reports/assets/css/report.css
 
 eda:
   sample_frac: 1.0
-  target: "target"
-  id_cols: ["id"]
+  target: "caravan"
+  id_cols: []
 
 clean:
   drop_na_thresh: 0.95
@@ -24,6 +24,7 @@ preprocess:
 
 model:
   algorithm: "logreg"
+  target: "caravan"
   logreg:
     C: 1.0
     penalty: "l2"
@@ -32,3 +33,29 @@ model:
     n_estimators: 300
     max_depth: 10
   scoring: "roc_auc"
+  gb:
+    n_estimators: 200
+    learning_rate: 0.05
+    max_depth: 3
+  svc:
+    C: 1.0
+    kernel: "rbf"
+    gamma: "scale"
+  knn:
+    n_neighbors: 7
+    weights: "distance"
+    metric: "minkowski"
+
+tracking:
+  mlflow:
+    enabled: true
+    tracking_uri: "file:mlruns"
+    experiment_name: "insurance_baseline"
+    run_name: "baseline_logreg"
+    tags:
+      stage: "baseline"
+      owner: "mlops_team"
+    registered_model_name: "InsuranceBaseline"
+    artifact_path: "model"
+  registry:
+    dir: "models/registry"

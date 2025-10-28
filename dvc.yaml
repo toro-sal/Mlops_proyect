@@ -19,3 +19,18 @@ stages:
       - reports/eda_clean.html
       - reports/figures/raw
       - reports/figures/clean
+  train_model:
+    cmd: >
+      python -m src.full_pipeline
+      --config config/params.yaml
+      --no-report
+    deps:
+      - config/params.yaml
+      - data/enriched/insurance_company_enriched.csv
+      - src/full_pipeline.py
+      - src/data_proc/data_cleaner.py
+      - src/modeling/config.py
+      - src/modeling/models.py
+      - src/modeling/trainer.py
+    outs:
+      - models/registry

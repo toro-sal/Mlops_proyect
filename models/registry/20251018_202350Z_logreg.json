@@ -1,0 +1,19 @@
+{
+  "version": "20251018_202350Z",
+  "created_at": "2025-10-18T20:23:50.028391+00:00",
+  "algorithm": "logreg",
+  "hyperparameters": {
+    "C": 1.0,
+    "penalty": "l2",
+    "max_iter": 500
+  },
+  "target": "caravan",
+  "metrics": {
+    "roc_auc": 0.6693923613300212
+  },
+  "roc_auc": 0.6693923613300212,
+  "mlflow_run_id": "137e80bebf704d46806019a59b641ed6",
+  "mlflow_experiment_id": "475021876550308022",
+  "mlflow_artifact_uri": "file:///Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/mlruns/475021876550308022/137e80bebf704d46806019a59b641ed6/artifacts",
+  "data_path": "/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/data/interim/data_clean.parquet"
+}

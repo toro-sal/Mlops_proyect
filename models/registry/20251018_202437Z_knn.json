@@ -1,0 +1,19 @@
+{
+  "version": "20251018_202437Z",
+  "created_at": "2025-10-18T20:24:37.432449+00:00",
+  "algorithm": "knn",
+  "hyperparameters": {
+    "n_neighbors": 7,
+    "weights": "distance",
+    "metric": "minkowski"
+  },
+  "target": "caravan",
+  "metrics": {
+    "roc_auc": 0.5896768255009016
+  },
+  "roc_auc": 0.5896768255009016,
+  "mlflow_run_id": "365b8dab6cd64fd4881a7ddc962c1bf4",
+  "mlflow_experiment_id": "475021876550308022",
+  "mlflow_artifact_uri": "file:///Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/mlruns/475021876550308022/365b8dab6cd64fd4881a7ddc962c1bf4/artifacts",
+  "data_path": "/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/data/interim/data_clean.parquet"
+}
