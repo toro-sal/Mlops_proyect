@@ -1,0 +1,89 @@
+paths:
+  raw: data/enriched/insurance_company_enriched.csv
+  interim: data/interim/data_clean.parquet
+  processed: data/processed/data_model.parquet
+  report_html: reports/eda_clean.html
+  report_css: reports/assets/css/report.css
+  root: .
+  data_dir: data
+  raw_dir: data/raw
+  clean_dir: data/clean_data
+
+files:
+  dictionary: data/raw/dictionary.txt
+  csv_input: data/raw/insurance_company_modified.csv
+  csv_output: data/clean_data/coil2000_clean.csv
+  report_output: data/clean_data/coil2000_dtypes_report.csv
+
+#======================
+# Parámetros generales
+#======================
+data:
+  separator: ","
+  encoding: "utf-8"
+  header: null        # null = sin encabezado, o 0 si el CSV ya trae header
+  sample_size: 1000   # puedes ajustar si quieres probar solo una muestra
+
+
+clean:
+# Para la parte de Getting data
+  drop_na: true
+  fill_missing: mean
+  normalize: true
+# Otro thresh
+  drop_na_thresh: 0.95
+  outlier_z: 4.0
+
+
+eda:
+  sample_frac: 1.0
+  target: "caravan"
+  id_cols: []
+
+
+
+preprocess:
+  numeric_imputer: "median"
+  categorical_imputer: "most_frequent"
+  scale_numeric: true
+  one_hot: true
+  test_size: 0.2
+  random_state: 42
+
+model:
+  algorithm: "logreg"
+  target: "caravan"
+  logreg:
+    C: 1.0
+    penalty: "l2"
+    max_iter: 500
+  rf:
+    n_estimators: 300
+    max_depth: 10
+  scoring: "roc_auc"
+  gb:
+    n_estimators: 200
+    learning_rate: 0.05
+    max_depth: 3
+  svc:
+    C: 1.0
+    kernel: "rbf"
+    gamma: "scale"
+  knn:
+    n_neighbors: 7
+    weights: "distance"
+    metric: "minkowski"
+
+tracking:
+  mlflow:
+    enabled: true
+    tracking_uri: "file:mlruns"
+    experiment_name: "insurance_baseline"
+    run_name: "baseline_logreg"
+    tags:
+      stage: "baseline"
+      owner: "mlops_team"
+    registered_model_name: "InsuranceBaseline"
+    artifact_path: "model"
+  registry:
+    dir: "models/registry"

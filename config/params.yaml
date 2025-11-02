@@ -1,0 +1,25 @@
+paths:
+  raw: data/enriched/insurance_company_enriched.csv
+  interim: data/interim/data_clean.parquet
+  processed: data/processed/data_model.parquet
+  report_html: reports/eda_clean.html
+  report_css: reports/assets/css/report.css
+  root: .
+  data_dir: data
+  raw_dir: data/raw
+  clean_dir: data/clean_data
+
+files:
+  dictionary: data/raw/dictionary.txt
+  csv_input: data/raw/insurance_company_modified.csv
+  csv_output: data/clean_data/coil2000_clean.csv
+  report_output: data/clean_data/coil2000_dtypes_report.csv
+
+clean:
+# Para la parte de Getting data
+  drop_na: true
+  fill_missing: mean
+  normalize: true
+# Otro thresh
+  drop_na_thresh: 0.95
+  outlier_z: 4.0
