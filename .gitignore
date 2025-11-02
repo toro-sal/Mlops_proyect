@@ -94,12 +94,7 @@ target/
 # exclude compiled binaries
 bin/
 
-# exclude data from source control by default
-/data/external
-/data/interim
-/data/processed
-/data/raw
-/data/enriched
+
 
 # exclude external models from source control
 /src/external/
