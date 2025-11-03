@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/mlruns/697054092760159197/91a235b76e584070ae5fee762850bbf8/artifacts
+deleted_time: 1762127318651
+end_time: 1762127203472
+entry_point_name: ''
+experiment_id: '697054092760159197'
+lifecycle_stage: deleted
+run_id: 91a235b76e584070ae5fee762850bbf8
+run_name: baseline_run
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1762127201870
+status: 3
+tags: []
+user_id: jfts

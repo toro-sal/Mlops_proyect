@@ -1,0 +1,43 @@
+{
+  "version": "20251102_234648Z",
+  "created_at": "2025-11-02T23:46:48.087944+00:00",
+  "algorithm": "rf",
+  "hyperparameters": {
+    "n_estimators": 300,
+    "max_depth": 10
+  },
+  "target": "caravan",
+  "metrics": {
+    "accuracy": 0.8947811447811448,
+    "precision": 0.18604651162790697,
+    "recall": 0.22535211267605634,
+    "f1_score": 0.20382165605095542,
+    "roc_auc": 0.742910461876001,
+    "log_loss": 0.3113216752874861
+  },
+  "roc_auc": 0.742910461876001,
+  "mlflow_run_id": "903b9751dd384412b679fadd9c64aaf2",
+  "mlflow_experiment_id": "697054092760159197",
+  "mlflow_artifact_uri": "file:///Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/mlruns/697054092760159197/903b9751dd384412b679fadd9c64aaf2/artifacts",
+  "data_path": "/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/data/interim/data_clean.parquet",
+  "confusion_matrix": {
+    "index": [
+      "actual_0",
+      "actual_1"
+    ],
+    "columns": [
+      "pred_0",
+      "pred_1"
+    ],
+    "values": [
+      [
+        1047,
+        70
+      ],
+      [
+        55,
+        16
+      ]
+    ]
+  }
+}

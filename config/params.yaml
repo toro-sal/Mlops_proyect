@@ -51,7 +51,7 @@ tracking:
     enabled: true
     tracking_uri: "file:mlruns"
     experiment_name: "insurance_baseline"
-    run_name: "baseline_logreg"
+    run_name: "knn_run"
     tags:
       stage: "baseline"
       owner: "mlops_team"

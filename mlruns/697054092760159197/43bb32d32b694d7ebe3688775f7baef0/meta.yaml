@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/mlruns/697054092760159197/43bb32d32b694d7ebe3688775f7baef0/artifacts
+end_time: 1762127555370
+entry_point_name: ''
+experiment_id: '697054092760159197'
+lifecycle_stage: active
+run_id: 43bb32d32b694d7ebe3688775f7baef0
+run_name: gb_run
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1762127551731
+status: 3
+tags: []
+user_id: jfts
