@@ -34,3 +34,33 @@ stages:
       - src/modeling/trainer.py
     outs:
       - models/registry
+  detect_drift:
+    cmd: >
+      python -m src.monitoring.data_drift
+      --config config/params.yaml
+      --registry models/registry/latest.json
+      --out reports/drift
+    deps:
+      - config/params.yaml
+      - models/registry/latest.json
+      - src/monitoring/data_drift.py
+      - src/modeling/config.py
+      - src/modeling/trainer.py
+      - src/modeling/metrics.py
+    outs:
+      - reports/drift
+  grid_search:
+    cmd: >
+      python -m src.modeling.grid_search
+      --config config/params.yaml
+      --output-dir reports/grid_search
+    deps:
+      - config/params.yaml
+      - data/interim/data_clean.parquet
+      - src/modeling/grid_search.py
+      - src/modeling/config.py
+      - src/modeling/models.py
+      - src/modeling/trainer.py
+      - src/modeling/metrics.py
+    outs:
+      - reports/grid_search

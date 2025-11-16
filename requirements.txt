@@ -12,3 +12,8 @@ mlflow
 evidently
 sdv
 deepchecks
+pyyaml
+uvicorn
+joblib
+boto3
+requests

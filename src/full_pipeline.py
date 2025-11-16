@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 import argparse
+import math
+from dataclasses import replace
+import json
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 import pandas as pd
+from sklearn.model_selection import ParameterGrid
 
 from src.data_proc.data_cleaner import CleanConfig, DataCleaner
 from src.eda.eda_reporter import EDAReport
 from src.modeling import ModelConfig, ModelTrainer
+from src.utils.seed import set_global_seed
 
 
 def _load_yaml(path: Path) -> Dict[str, Any]:
@@ -70,12 +75,152 @@ def _guess_target_column(df: pd.DataFrame, preferred: Optional[str]) -> Optional
     return None
 
 
+DEFAULT_MODEL_SELECTION_ALGOS = ["logreg", "rf", "gb", "svc", "knn"]
+
+
+def _score_value(raw: Any) -> float:
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return float("-inf")
+    if math.isnan(value):
+        return float("-inf")
+    return value
+
+
+def _resolve_model_selection_algorithms(params: Dict[str, Any]) -> List[str]:
+    selection_cfg = params.get("model_selection", {})
+    algorithms = selection_cfg.get("algorithms")
+    if isinstance(algorithms, list) and algorithms:
+        return [str(a) for a in algorithms]
+    return DEFAULT_MODEL_SELECTION_ALGOS
+
+
+def _iter_model_selection_combos(params: Dict[str, Any], algorithm: str) -> List[Dict[str, Any]]:
+    selection_cfg = params.get("model_selection", {})
+    grid_spec = (selection_cfg.get("grids", {}) or {}).get(algorithm)
+    if grid_spec:
+        return [dict(combo) for combo in ParameterGrid(grid_spec)]
+    model_section = params.get("model", {})
+    fallback = model_section.get(algorithm, {})
+    if isinstance(fallback, dict):
+        return [dict(fallback)]
+    return [{}]
+
+
+def _build_best_run_name(base_config: ModelConfig, algorithm: str) -> str:
+    prefix = base_config.mlflow_run_name or "grid_search"
+    return f"{prefix}_{algorithm}_best"
+
+
+def _run_model_selection(
+    df_clean: pd.DataFrame,
+    base_config: ModelConfig,
+    params: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    selection_cfg = params.get("model_selection")
+    if selection_cfg is None:
+        return None
+
+    scoring = base_config.scoring or "roc_auc"
+    algorithms = _resolve_model_selection_algorithms(params)
+    results: List[Dict[str, Any]] = []
+    best_by_algo: Dict[str, Dict[str, Any]] = {}
+    best_overall: Optional[Dict[str, Any]] = None
+
+    for algorithm in algorithms:
+        combos = _iter_model_selection_combos(params, algorithm)
+        if not combos:
+            continue
+        for combo in combos:
+            trial_cfg = replace(
+                base_config,
+                algorithm=algorithm,
+                algorithm_params=dict(combo),
+                mlflow_enabled=False,
+                model_registry_dir=None,
+                mlflow_run_name=None,
+            )
+            trainer = ModelTrainer(trial_cfg)
+            result = trainer.run(df_clean)
+            entry = {
+                "algorithm": algorithm,
+                "params": dict(combo),
+                "metrics": result.metrics,
+                "score": _score_value(result.metrics.get(scoring)),
+                "scoring": scoring,
+            }
+            results.append(entry)
+            current_best = best_by_algo.get(algorithm)
+            if current_best is None or entry["score"] > current_best["score"]:
+                best_by_algo[algorithm] = entry
+            if best_overall is None or entry["score"] > best_overall["score"]:
+                best_overall = entry
+
+    if not results or best_overall is None:
+        return None
+
+    ordered_best = [best_by_algo[a] for a in algorithms if a in best_by_algo]
+    return {
+        "best_overall": best_overall,
+        "best_by_algorithm": ordered_best,
+        "all_results": results,
+    }
+
+
+def _register_best_algorithms(
+    df_clean: pd.DataFrame,
+    base_config: ModelConfig,
+    best_by_algorithm: List[Dict[str, Any]],
+) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    registered: List[Dict[str, Any]] = []
+    results_by_algorithm: Dict[str, Any] = {}
+    scoring = base_config.scoring or "roc_auc"
+    for entry in best_by_algorithm:
+        algorithm = entry["algorithm"]
+        params = dict(entry.get("params", {}))
+        cfg = replace(
+            base_config,
+            algorithm=algorithm,
+            algorithm_params=params,
+            mlflow_run_name=_build_best_run_name(base_config, algorithm),
+        )
+        trainer = ModelTrainer(cfg)
+        result = trainer.run(df_clean)
+        results_by_algorithm[algorithm] = result
+        registered.append(
+            {
+                "algorithm": algorithm,
+                "params": params,
+                "metrics": result.metrics,
+                "score": _score_value(result.metrics.get(scoring)),
+                "scoring": scoring,
+                "mlflow_run_id": result.mlflow_run_id,
+                "mlflow_experiment_id": result.mlflow_experiment_id,
+                "mlflow_run_name": cfg.mlflow_run_name,
+                "artifacts": result.artifacts,
+            }
+        )
+    return registered, results_by_algorithm
+
+
+def _overwrite_latest_registry(model_registry_dir: Optional[Path], entry_json: Path) -> Optional[Path]:
+    """Sobrescribe models/registry/latest.json con el contenido de una entrada específica."""
+    if model_registry_dir is None:
+        return None
+    payload = json.loads(Path(entry_json).read_text())
+    latest = Path(model_registry_dir) / "latest.json"
+    latest.write_text(json.dumps(payload, indent=2))
+    return latest
+
+
 def run_full_pipeline(
     *,
     config_path: Path | str = Path("config/params.yaml"),
     project_root: Path | str | None = None,
     generate_clean_report: bool = True,
     algorithm: Optional[str] = None,
+    run_model_selection: bool = True,
 ) -> Dict[str, Any]:
     """
     Ejecuta el pipeline end-to-end:
@@ -83,7 +228,8 @@ def run_full_pipeline(
     1. Carga parámetros del proyecto.
     2. Limpia el dataset crudo con `DataCleaner`.
     3. Genera (opcional) un reporte EDA sobre datos limpios.
-    4. Entrena el modelo baseline mediante `ModelTrainer`.
+    4. (Opcional) Ejecuta búsqueda de modelos/hiperparámetros y selecciona el mejor.
+    5. Entrena el modelo final mediante `ModelTrainer`.
 
     Devuelve un diccionario con rutas y métricas relevantes.
     """
@@ -98,6 +244,12 @@ def run_full_pipeline(
     project_root = Path(project_root).resolve()
 
     params = _load_yaml(config_path)
+    preprocess_cfg = params.get("preprocess", {})
+    seed_value = preprocess_cfg.get("random_state")
+    if seed_value is None:
+        seed_value = preprocess_cfg.get("seed", 42)
+    set_global_seed(int(seed_value))
+
     paths_cfg = params.get("paths", {})
     eda_cfg = params.get("eda", {})
     clean_cfg = params.get("clean", {})
@@ -181,8 +333,51 @@ def run_full_pipeline(
         )
     model_config.target = target_col
 
-    trainer = ModelTrainer(model_config)
-    result = trainer.run(df_clean)
+    selection_summary: Optional[Dict[str, Any]] = None
+    effective_config = model_config
+    trained_best_results: Dict[str, Any] = {}
+    should_run_selection = run_model_selection and algorithm is None
+    best_config_entry: Optional[Dict[str, Any]] = None
+    if should_run_selection:
+        selection_summary = _run_model_selection(df_clean, model_config, params)
+        if selection_summary:
+            best_config_entry = selection_summary.get("best_overall")
+            best_by_alg = selection_summary.get("best_by_algorithm") or []
+            if best_by_alg:
+                registered_entries, trained_best_results = _register_best_algorithms(df_clean, model_config, best_by_alg)
+                selection_summary["registered_models"] = registered_entries
+                if registered_entries:
+                    best_registered = max(registered_entries, key=lambda x: x.get("score", float("-inf")))
+                    selection_summary["best_overall_registered"] = best_registered
+                    best_config_entry = best_registered
+                    # Asegura que latest.json apunte al mejor global registrado
+                    artifacts = best_registered.get("artifacts") or {}
+                    entry_path = artifacts.get("model_registry_entry")
+                    if entry_path:
+                        latest_path = _overwrite_latest_registry(model_config.model_registry_dir, Path(entry_path))
+                        if latest_path is not None:
+                            selection_summary["latest_registry_overwritten"] = str(latest_path)
+        if best_config_entry:
+            effective_config = replace(
+                model_config,
+                algorithm=best_config_entry["algorithm"],
+                algorithm_params=dict(best_config_entry.get("params", {})),
+            )
+
+    result = trained_best_results.get(effective_config.algorithm)
+    if result is None:
+        trainer = ModelTrainer(effective_config)
+        result = trainer.run(df_clean)
+
+    if selection_summary:
+        selection_summary["deployed_model"] = {
+            "algorithm": effective_config.algorithm,
+            "params": effective_config.algorithm_params,
+            "metrics": result.metrics,
+            "mlflow_run_id": result.mlflow_run_id,
+            "mlflow_experiment_id": result.mlflow_experiment_id,
+            "artifacts": result.artifacts,
+        }
 
     return {
         "raw_path": raw_path,
@@ -194,8 +389,9 @@ def run_full_pipeline(
         "mlflow_run_id": result.mlflow_run_id,
         "mlflow_experiment_id": result.mlflow_experiment_id,
         "artifacts": result.artifacts,
-        "algorithm": model_config.algorithm,
+        "algorithm": effective_config.algorithm,
         "confusion_matrix": result.confusion_matrix,
+        "model_selection": selection_summary,
     }
 
 
@@ -209,6 +405,11 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         default=None,
         help="Sobrescribe el algoritmo configurado (p.ej. logreg, rf, gb, svc, knn).",
     )
+    parser.add_argument(
+        "--no-model-selection",
+        action="store_true",
+        help="Desactiva la búsqueda automática de modelos/híper-parámetros dentro del pipeline.",
+    )
     return parser.parse_args(argv)
 
 
@@ -220,6 +421,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             project_root=Path(args.project_root) if args.project_root else None,
             generate_clean_report=not args.no_report,
             algorithm=args.algorithm,
+            run_model_selection=not args.no_model_selection,
         )
     except Exception as exc:
         print(f"[ERROR] {exc}")
@@ -234,6 +436,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"  • Métricas: {outputs['model_metrics']}")
     if outputs.get("algorithm"):
         print(f"  • Algoritmo: {outputs['algorithm']}")
+    selection = outputs.get("model_selection") or {}
+    best_overall = selection.get("best_overall_registered") or selection.get("best_overall")
+    if best_overall:
+        score = best_overall.get("score")
+        scoring = best_overall.get("scoring")
+        print(
+            f"  • Mejor algoritmo (grid search): {best_overall.get('algorithm')} "
+            f"(score={score} por {scoring})"
+        )
     if outputs.get("mlflow_run_id"):
         print(f"  • MLflow run_id: {outputs['mlflow_run_id']}")
     artifacts = outputs.get("artifacts") or {}

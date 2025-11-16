@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/mlruns/445292703361451096/d13eedf3260a47b5b036ac967d06b270/artifacts
+end_time: 1763324928848
+entry_point_name: ''
+experiment_id: '445292703361451096'
+lifecycle_stage: active
+run_id: d13eedf3260a47b5b036ac967d06b270
+run_name: insurance_run_logreg_best
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1763324926742
+status: 3
+tags: []
+user_id: jfts

@@ -9,6 +9,7 @@ import tempfile
 
 import numpy as np
 import pandas as pd
+from joblib import dump
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 
@@ -22,6 +23,7 @@ from .models import (
     KNeighborsModel,
 )
 from .metrics import compute_classification_metrics
+from src.utils.seed import set_global_seed
 
 
 MODEL_REGISTRY = {
@@ -60,6 +62,7 @@ class ModelTrainer:
         self.model = model or self._build_model(config.algorithm)
         self._feature_names: Tuple[str, ...] = ()
         self._dropped_columns: Tuple[str, ...] = ()
+        set_global_seed(getattr(self.config, "random_state", 42))
 
     # ------------------------------------------------------------------ #
     # Helpers
@@ -294,6 +297,9 @@ class ModelTrainer:
             "mlflow_experiment_id": result.mlflow_experiment_id,
             "mlflow_artifact_uri": result.artifacts.get("mlflow_artifact_uri"),
             "data_path": str(self.config.data_path) if self.config.data_path else None,
+            "feature_names": list(map(str, self._feature_names)),
+            "dropped_columns": list(map(str, self._dropped_columns)),
+            "random_state": getattr(self.config, "random_state", None),
         }
         if result.confusion_matrix is not None:
             payload["confusion_matrix"] = {
@@ -301,6 +307,12 @@ class ModelTrainer:
                 "columns": list(map(str, result.confusion_matrix.columns)),
                 "values": result.confusion_matrix.values.tolist(),
             }
+
+        if self.model.pipeline is not None:
+            model_file = registry_dir / f"{version}_{self.config.algorithm}.joblib"
+            dump(self.model.pipeline, model_file)
+            payload["model_artifact"] = str(model_file)
+            result.artifacts["model_artifact_path"] = str(model_file)
 
         file_path = registry_dir / f"{version}_{self.config.algorithm}.json"
         file_path.write_text(json.dumps(payload, indent=2))

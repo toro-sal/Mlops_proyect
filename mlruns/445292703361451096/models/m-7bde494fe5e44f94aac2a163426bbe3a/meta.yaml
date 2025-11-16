@@ -1,0 +1,10 @@
+artifact_location: file:///Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/mlruns/445292703361451096/models/m-7bde494fe5e44f94aac2a163426bbe3a/artifacts
+creation_timestamp: 1763324938301
+experiment_id: '445292703361451096'
+last_updated_timestamp: 1763324939752
+model_id: m-7bde494fe5e44f94aac2a163426bbe3a
+model_type: null
+name: model
+source_run_id: f4e2da0cf0cb488ea1885b4a6e00e88f
+status: 2
+status_message: null

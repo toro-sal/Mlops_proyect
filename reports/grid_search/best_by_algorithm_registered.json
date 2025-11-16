@@ -1,0 +1,117 @@
+[
+  {
+    "algorithm": "gb",
+    "params": {
+      "learning_rate": 0.05,
+      "max_depth": 3,
+      "n_estimators": 150
+    },
+    "metrics": {
+      "accuracy": 0.9410774410774411,
+      "precision": 0.6666666666666666,
+      "recall": 0.028169014084507043,
+      "f1_score": 0.05405405405405406,
+      "roc_auc": 0.7552170678502528,
+      "log_loss": 0.20563741294349994
+    },
+    "scoring": "roc_auc",
+    "score": 0.7552170678502528,
+    "model_artifact": "/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/models/registry/20251115_130515Z_gb.joblib",
+    "registry_entry": "/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/models/registry/20251115_130515Z_gb.json",
+    "registry_latest": "/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/models/registry/latest.json",
+    "mlflow_run_id": "a8ed04c0aa094eb6872237c5b0d492c6",
+    "mlflow_experiment_id": "697054092760159197"
+  },
+  {
+    "algorithm": "knn",
+    "params": {
+      "metric": "minkowski",
+      "n_neighbors": 11,
+      "weights": "distance"
+    },
+    "metrics": {
+      "accuracy": 0.9402356902356902,
+      "precision": 0.5,
+      "recall": 0.028169014084507043,
+      "f1_score": 0.05333333333333334,
+      "roc_auc": 0.6411855195632162,
+      "log_loss": 0.8648175458680425
+    },
+    "scoring": "roc_auc",
+    "score": 0.6411855195632162,
+    "model_artifact": "/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/models/registry/20251115_130517Z_knn.joblib",
+    "registry_entry": "/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/models/registry/20251115_130517Z_knn.json",
+    "registry_latest": "/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/models/registry/latest.json",
+    "mlflow_run_id": "3ae9a71665494af4bb4145dce4798e02",
+    "mlflow_experiment_id": "697054092760159197"
+  },
+  {
+    "algorithm": "logreg",
+    "params": {
+      "C": 0.1,
+      "class_weight": "balanced",
+      "max_iter": 400,
+      "penalty": "l2"
+    },
+    "metrics": {
+      "accuracy": 0.6582491582491582,
+      "precision": 0.10401891252955082,
+      "recall": 0.6197183098591549,
+      "f1_score": 0.17813765182186234,
+      "roc_auc": 0.6817872318963016,
+      "log_loss": 0.6989353559733869
+    },
+    "scoring": "roc_auc",
+    "score": 0.6817872318963016,
+    "model_artifact": "/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/models/registry/20251115_130518Z_logreg.joblib",
+    "registry_entry": "/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/models/registry/20251115_130518Z_logreg.json",
+    "registry_latest": "/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/models/registry/latest.json",
+    "mlflow_run_id": "a9d6a18cf39c4e65b4a0dbe497522374",
+    "mlflow_experiment_id": "697054092760159197"
+  },
+  {
+    "algorithm": "rf",
+    "params": {
+      "max_depth": 12,
+      "n_estimators": 400
+    },
+    "metrics": {
+      "accuracy": 0.9048821548821548,
+      "precision": 0.18181818181818182,
+      "recall": 0.16901408450704225,
+      "f1_score": 0.17518248175182483,
+      "roc_auc": 0.7403633979346085,
+      "log_loss": 0.2677032401880178
+    },
+    "scoring": "roc_auc",
+    "score": 0.7403633979346085,
+    "model_artifact": "/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/models/registry/20251115_130521Z_rf.joblib",
+    "registry_entry": "/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/models/registry/20251115_130521Z_rf.json",
+    "registry_latest": "/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/models/registry/latest.json",
+    "mlflow_run_id": "c9a41da509fc4ddf905798446c720466",
+    "mlflow_experiment_id": "697054092760159197"
+  },
+  {
+    "algorithm": "svc",
+    "params": {
+      "C": 0.5,
+      "gamma": "scale",
+      "probability": true
+    },
+    "metrics": {
+      "accuracy": 0.9402356902356902,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1_score": 0.0,
+      "roc_auc": 0.5550897146531832,
+      "log_loss": 0.22639342199344525
+    },
+    "scoring": "roc_auc",
+    "score": 0.5550897146531832,
+    "model_artifact": "/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/models/registry/20251115_130524Z_svc.joblib",
+    "registry_entry": "/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/models/registry/20251115_130524Z_svc.json",
+    "registry_latest": "/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/models/registry/latest.json",
+    "mlflow_run_id": "7b536b4a213a47ae8d3550ebd89d2afb",
+    "mlflow_experiment_id": "697054092760159197"
+  }
+]

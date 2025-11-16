@@ -1,0 +1,32 @@
+{
+  "generated_at": "2025-11-16T20:37:26.148068+00:00",
+  "registry": "models/registry/latest.json",
+  "artifact": "/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/models/registry/20251116_202853Z_gb.joblib",
+  "severity": 0.3,
+  "baseline_metrics": {
+    "accuracy": 0.9437426309583965,
+    "precision": 0.8846153846153846,
+    "recall": 0.06497175141242938,
+    "f1_score": 0.12105263157894737,
+    "roc_auc": 0.8576747814946706,
+    "log_loss": 0.1687696203768396
+  },
+  "drift_metrics": {
+    "accuracy": 0.9395317500421088,
+    "precision": 0.35294117647058826,
+    "recall": 0.01694915254237288,
+    "f1_score": 0.03234501347708895,
+    "roc_auc": 0.7672595682413622,
+    "log_loss": 0.1985949071922667
+  },
+  "delta": {
+    "roc_auc": 0.09041521325330837
+  },
+  "thresholds": {
+    "roc_auc_drop_threshold": 0.05
+  },
+  "alert": true,
+  "action": "Revisar pipeline de features y planificar reentrenamiento",
+  "drift_sample": "reports/drift/drift_sample.csv",
+  "drift_plot": "reports/drift/feature_shift.png"
+}

@@ -1,0 +1,18 @@
+{
+  "algorithm": "gb",
+  "params": {
+    "learning_rate": 0.05,
+    "max_depth": 3,
+    "n_estimators": 150
+  },
+  "metrics": {
+    "accuracy": 0.9410774410774411,
+    "precision": 0.6666666666666666,
+    "recall": 0.028169014084507043,
+    "f1_score": 0.05405405405405406,
+    "roc_auc": 0.7552170678502528,
+    "log_loss": 0.20563741294349994
+  },
+  "scoring": "roc_auc",
+  "score": 0.7552170678502528
+}

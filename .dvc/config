@@ -1,0 +1,7 @@
+['core']
+    remote = s3-prod
+
+['remote "s3-prod"']
+    url = s3://mlops-proyect-artifacts/dvcstore
+    profile = default
+    endpointurl = https://s3.amazonaws.com

@@ -94,7 +94,7 @@ target/
 # exclude compiled binaries
 bin/
 
-
+mlops_proyect/mlruns/models
 
 # exclude external models from source control
 /src/external/

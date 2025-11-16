@@ -1,219 +1,207 @@
-Directory Structure
---------------------
+# Proyecto MLOps – Insurance Caravan
 
-    .
-    ├── AUTHORS.md
-    ├── LICENSE
-    ├── README.md
-    ├── models  <- compiled model .pkl or HDFS or .pb format
-    ├── config  <- any configuration files
-    ├── data
-    │   ├── interim <- data in intermediate processing stage
-    │   ├── processed <- data after all preprocessing has been done
-    │   └── raw <- original unmodified data acting as source of truth and provenance
-    ├── docs  <- usage documentation or reference papers
-    ├── notebooks <- jupyter notebooks for exploratory analysis and explanation 
-    ├── reports <- generated project artefacts eg. visualisations or tables
-    │   └── figures
-    └── src
-        ├── data-proc <- scripts for processing data eg. transformations, dataset merges etc. 
-        ├── viz  <- scripts for visualisation during EDA, modelling, error analysis etc. 
-        ├── modeling    <- scripts for generating models
-    |--- environment.yml <- file with libraries and library versions for recreating the analysis environment
+Este repositorio implementa un flujo MLOps completo para predecir la probabilidad de que un cliente tenga pólizas tipo **CARAVAN** (casas rodantes). Incluye limpieza de datos, EDA, entrenamiento con selección automática de modelos, monitoreo de drift, API de predicción (FastAPI) y empaquetado Docker.
 
+---
 
+## 1. Requisitos previos
 
-Tecnología y Arquitectura
--------------------------
-- **Lenguaje base**: Python 3 con un entorno reproducible definido en `environment.yml` / `requirements.txt`.
-- **Procesamiento de datos**: pandas y numpy gestionan la ingestión y transformación (clases en `src/data_proc`).
-- **EDA y reporting**: Matplotlib y Seaborn generan figuras; los reportes HTML están encapsulados en `EDAReport` (`src/eda`).
-- **Modelado supervisado**: scikit-learn provee los algoritmos base (logistic regression, random forest, gradient boosting, SVM, k-NN) integrados vía `ModelTrainer` (`src/modeling`).
-- **Orquestación**: scripts tipo CLI (`src/run_eda.py`, `src/full_pipeline.py`) coordinan los pasos; DVC puede versionar datos/artefactos (`dvc.yaml`).
-- **Arquitectura**: estructura modular tipo paquete Python con separación por dominio (EDA, limpieza, modelado, pipeline) más notebooks para exploración.
+- Python 3.11 (recomendado) + `pip`
+- Git, DVC (opcional) y Docker (para despliegue containerizado)
+- MLflow (se instala con `requirements.txt`)
 
-EDA Workflows
--------------
-
-Ejecutar el pipeline completo (EDA crudo + limpieza + EDA limpio):
+Instalación rápida:
 
 ```bash
-python -m src.run_full_eda \
-  --raw data/enriched/insurance_company_enriched.csv \
-  --clean-out data/interim/insurance_clean.csv \
-  --raw-report reports/eda_raw.html \
-  --clean-report reports/eda_clean.html
+cd mlops_proyect
+python -m venv ../venv && source ../venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Generar solo un reporte EDA sobre un dataset (sin limpieza):
+(Con Conda: `conda env create -f environment.yml && conda activate mlops_proyect`).
 
-```bash
-python -m src.run_eda \
-  --csv data/enriched/insurance_company_enriched.csv\
-  --out reports/eda_single.html
+---
+
+## 2. Estructura del repositorio
+
+```
+mlops_proyect/
+├── config/                 # Parámetros globales (params.yaml, etc.)
+├── data/
+│   ├── enriched/           # Dataset crudo usado como entrada
+│   ├── interim/            # Salidas intermedias (csv/parquet limpios)
+│   └── processed/          # Features listas para modelado (si aplica)
+├── models/
+│   └── registry/           # Historial de modelos (JSON + .joblib + latest.json)
+├── reports/
+│   ├── eda_*.html          # Reportes EDA
+│   ├── grid_search/        # Resultados de barridos
+│   └── drift/              # Reportes de data drift
+├── src/
+│   ├── api/                # Servicio FastAPI (`src/api/app.py`)
+│   ├── data_proc/          # Limpieza y utilidades de datos
+│   ├── eda/                # Reportes exploratorios
+│   ├── modeling/           # Config, modelos sklearn, grid search
+│   ├── monitoring/         # Scripts de drift
+│   └── full_pipeline.py    # Orquestador principal
+├── tests/                  # Pytest (unitarias + integración + API)
+├── dvc.yaml                # Pipeline reproducible (EDA, entrenamiento, drift, grid)
+├── Dockerfile              # Imagen para servir la API
+└── README.md               # Este documento
 ```
 
-Utiliza los flags opcionales (`--target`, `--id-cols`, `--datetime-cols`, `--cat-cols`, etc.) para ajustar cada comando a tus columnas objetivo o requerimientos de análisis.
+---
 
-Modeling (Baseline)
--------------------
+## 3. Configuración clave (`config/params.yaml`)
 
-La lógica del notebook `03_modeling.ipynb` ahora vive en clases reutilizables dentro de `src/modeling`.
+- `paths`: ubicación de datos crudos, limpios, reportes y modelos.
+- `eda`: columnas ID, categóricas, objetivo, títulos de reporte, etc.
+- `clean`: reglas de limpieza (threshold de NA, outliers, coerción numérica).
+- `preprocess`: imputaciones, escalado, split train/test.
+- `model`: algoritmo por defecto y bloques con hiperparámetros (logreg, rf, gb, svc, knn…).
+- `tracking`: ajustes de MLflow (`run_name`, etiquetas, URI) y directorio del registry local.
+- `model_selection`: lista de algoritmos y grids evaluados automáticamente en el pipeline.
+- `monitoring`: umbrales para alertar drift (`roc_auc_drop_threshold`, severidad, etc.).
 
-```python
-from pathlib import Path
-from src.modeling import ModelConfig, ModelTrainer
+Modificar este archivo es la forma principal de adaptar el proyecto a nuevos datos/objetivos.
 
-# Carga parámetros desde config/params.yaml (requiere PyYAML)
-config = ModelConfig.from_yaml(Path("config/params.yaml"))
-trainer = ModelTrainer(config)
-result = trainer.run()
+---
 
-print("ROC-AUC:", result.metrics["roc_auc"])
-print(result.classification_report)
-print(result.feature_summary.head())
-```
+## 4. Paso a paso del pipeline
 
-Si no tienes PyYAML instalado, crea el `ModelConfig` manualmente:
+1. **Preparar entorno**  
+   - Activar el venv/conda.
+   - Validar datos crudos: `ls data/enriched/insurance_company_enriched.csv`.
 
-```python
-from pathlib import Path
-from src.modeling import ModelConfig, ModelTrainer
-
-config = ModelConfig(
-    data_path=Path("data/interim/data_clean.parquet"),
-    target="caravan",
-    drop_suffixes=("_label",),
-)
-trainer = ModelTrainer(config)
-result = trainer.run()
-```
-
-Probar otros modelos
---------------------
-
-1. Ajusta `model.algorithm` en `config/params.yaml` (`logreg`, `rf`, `gb`, `svc`, `knn` o cualquier otra clave registrada en `MODEL_REGISTRY` dentro de `src/modeling/trainer.py`) y personaliza el bloque correspondiente (`model.logreg`, `model.rf`, `model.gb`, etc.) con los hiperparámetros que quieras evaluar.
-2. Ejecuta `python3 -m src.full_pipeline --config config/params.yaml --no-report` o `dvc repro train_model`; cada corrida generará un nuevo run en MLflow con sus métricas, parámetros y artefactos. Para sobrescribir el algoritmo sin editar el YAML usa `--algorithm` (ej. `python3 -m src.full_pipeline --config config/params.yaml --no-report --algorithm rf`).
-   - Desde un entorno `bash`, puedes seleccionar el modelo al vuelo:  
+2. **EDA (opcional pero recomendado)**  
+   - Completo (crudo → limpio → reportes):
      ```bash
-     python3 -m src.full_pipeline --config config/params.yaml --no-report --algorithm gb
+     python -m src.run_full_eda \
+       --raw data/enriched/insurance_company_enriched.csv \
+       --clean-out data/interim/insurance_clean.csv \
+       --raw-report reports/eda_raw.html \
+       --clean-report reports/eda_clean.html
      ```
-   - En Windows PowerShell:  
-     ```powershell
-     python3 -m src.full_pipeline --config config/params.yaml --no-report --algorithm svc
+   - Rápido (un solo dataset):
+     ```bash
+     python -m src.run_eda \
+       --csv data/enriched/insurance_company_enriched.csv \
+       --out reports/eda_single.html
      ```
-3. Cambia `tracking.mlflow.run_name` o añade etiquetas en `tracking.mlflow.tags` para identificar fácilmente cada experimento (`stage: experiment`, `model_version: v2`, etc.).
-4. Para incorporar algoritmos adicionales, implementa la clase en `src/modeling/models.py`, agrégala al `MODEL_REGISTRY` y vuelve a lanzar el pipeline; los resultados aparecerán en MLflow y en `models/registry`.
 
-Ejecutar todos los modelos disponibles en secuencia (usando `bash`):
-
-```bash
-for algo in logreg rf gb svc knn; do
-  python3 -m src.full_pipeline --config config/params.yaml --no-report --algorithm "$algo"
-done
-```
-
-Full Pipeline
--------------
-
-Ejecuta todo el flujo (limpieza + EDA + modelado) desde Python o CLI usando `src.full_pipeline`:
-
-```python
-from src.full_pipeline import run_full_pipeline
-
-artifacts = run_full_pipeline()
-print(artifacts["model_metrics"])
-```
-
-También puedes dispararlo desde la línea de comandos:
-
-```bash
-python -m src.full_pipeline --config config/params.yaml
-```
-
-La sección `tracking` de `config/params.yaml` controla el seguimiento automático con MLflow y el registro local de modelos:
-
-```yaml
-tracking:
-  mlflow:
-    enabled: true
-    tracking_uri: "file:mlruns"
-    experiment_name: "insurance_baseline"
-    run_name: "baseline_logreg"
-    registered_model_name: "InsuranceBaseline"
-  registry:
-    dir: "models/registry"
-```
-
-Cada ejecución del pipeline genera:
-- Un run en MLflow con métricas (accuracy, precision, recall, F1, ROC-AUC, log-loss), matriz de confusión, parámetros, artefactos y el modelo serializado.
-- Un historial versionado en `models/registry/<timestamp>_<algoritmo>.json` con versión, hiperparámetros, métricas y enlaces relevantes. El último resultado queda accesible en `models/registry/latest.json`.
-
-Levanta la interfaz de MLflow para comparar configuraciones y métricas:
-
-```bash
-mlflow ui --backend-store-uri file:mlruns
-```
-
-Si ejecutas desde otra carpeta, proporciona la ruta absoluta donde se guardan los runs:
-
-```bash
-mlflow ui --backend-store-uri file:/Users/jfts/Documents/ML_OPS_PROYECT/mlops_proyect/mlruns
-```
-
-Con la UI levantada, abre `http://127.0.0.1:5000` y selecciona el experimento `insurance_baseline` para revisar las ejecuciones.
-
-Desde la UI puedes comparar ejecuciones, descargar artefactos y visualizar las métricas registradas.
-
-DVC Pipeline
-------------
-
-1. Instala DVC en tu entorno (`pip install dvc`).
-2. Inicializa el repositorio si todavía no lo hiciste:
+3. **Pipeline completo con selección automática**  
    ```bash
-   dvc init
+   python -m src.full_pipeline --config config/params.yaml --no-report
    ```
-3. (Opcional) Versiona los datos crudos/enriquecidos con DVC:
+   - Limpia datos, genera parquet intermedio y ejecuta grid search declarado en `model_selection`.
+   - Cada algoritmo se reentrena únicamente con su mejor combinación y se registra en MLflow con run name `"<run_name>_<algoritmo>_best"` (ej: `insurance_run_rf_best`).
+   - El mejor score global (según `model.scoring`, por defecto ROC-AUC) se publica en `models/registry/latest.json`, listo para servir en la API.
+   - Para desactivar la selección y entrenar sólo `model.algorithm`: añade `--no-model-selection`.
+   - Para forzar un algoritmo puntual: `--algorithm rf`.
+
+4. **Revisar resultados en MLflow**  
    ```bash
-   dvc add data/enriched/insurance_company_enriched.csv
-   git add data/enriched/insurance_company_enriched.csv.dvc .gitignore
+   mlflow ui --backend-store-uri file:mlruns
    ```
-4. Reproduce la tubería completa de EDA y limpieza:
+   Abrir `http://127.0.0.1:5000` y filtrar por etiquetas (`model.algorithm`, etc.).
+
+5. **Revisión manual de grid search (opcional)**  
    ```bash
-   dvc repro eda_full
+   python -m src.modeling.grid_search --config config/params.yaml --output-dir reports/grid_search
    ```
-   Este stage ejecuta `src.run_full_eda` y actualiza:
-   - `data/interim/insurance_clean.csv`
-   - `reports/eda_raw.html`
-   - `reports/eda_clean.html`
-   - `reports/figures/raw/`
-   - `reports/figures/clean/`
-5. Sincroniza artefactos con tu remoto de datos cuando sea necesario (`dvc remote add`, `dvc push`, `dvc pull`).
+   Archivos:
+   - `grid_search_results.csv|json`: todas las combinaciones evaluadas.
+   - `best_model.json`: mejor combinación global.
+   - `best_by_algorithm.json`: campeón por modelo.
+   - `best_by_algorithm_registered.json`: mismas entradas pero reentrenadas/logueadas (artefactos listos para servir). Usa `--no-register-best` si sólo quieres métricas.
 
-Consulta `dvc.yaml` para conocer dependencias y salidas de cada stage; puedes extenderlo con pasos adicionales de preprocesamiento o modelado según avances en el proyecto.
+6. **Servicio FastAPI**  
+   ```bash
+   cd mlops_proyect
+   source ../venv/bin/activate
+   uvicorn src.api.app:app --reload --host 0.0.0.0 --port 8000
+   ```
+   - Endpoints:
+     - `GET /health`: estado del modelo cargado desde `models/registry/latest.json`.
+     - `POST /predict`: acepta `{"records": [...], "return_probabilities": true}` y responde:
+       ```json
+       {
+         "model_version": "...",
+         "algorithm": "knn",
+         "predictions": [0],
+         "probabilities": [0.21],
+         "interpretations": ["Baja probabilidad de póliza caravan (confianza 21.0%)"],
+         "feature_names": [...],
+         "reference_metrics": {...}
+       }
+       ```
+     - Variables opcionales: `MODEL_REGISTRY_METADATA_PATH`, `MODEL_ARTIFACT_PATH`, `MODEL_SERVICE_FILL_VALUE`.
+   - Prueba con Postman/Curl:
+     ```bash
+     curl -X POST http://localhost:8000/predict \
+       -H "Content-Type: application/json" \
+       -d '{"records":[{"MOSTYPE":11,"MOSHOOFD":0,"MRELGE":1,"ABRAND":1,"AFIETS":1,...}],"return_probabilities":true}'
+     ```
 
-Se añadió el stage `train_model` para versionar los experimentos de modelado con DVC:
+7. **Docker (servir sin entorno local)**  
+   ```bash
+   docker build -t ml-service:latest .
+   docker run -p 8000:8000 -v $(pwd)/models:/app/models ml-service:latest
+   ```
+   - Usa `MODEL_REGISTRY_METADATA_PATH=/app/models/registry/latest.json` dentro del contenedor.
 
-```yaml
-train_model:
-  cmd: python -m src.full_pipeline --config config/params.yaml --no-report
-  deps:
-    - config/params.yaml
-    - data/enriched/insurance_company_enriched.csv
-    - src/full_pipeline.py
-    - src/data_proc/data_cleaner.py
-    - src/modeling/config.py
-    - src/modeling/models.py
-    - src/modeling/trainer.py
-  outs:
-    - models/registry
-```
+8. **Monitoreo de Data Drift**  
+   ```bash
+   python -m src.monitoring.data_drift \
+     --config config/params.yaml \
+     --registry models/registry/latest.json \
+     --out reports/drift \
+     --severity 0.3
+   ```
+   - Salidas: `drift_report.json`, `drift_sample.csv`, `feature_shift.png`.
+   - Si `roc_auc_drop` supera `monitoring.drift.roc_auc_drop_threshold`, planificar reentrenamiento.
+   - Stage DVC: `dvc repro detect_drift`.
 
-Reprodúcelo con:
+9. **DVC (pipeline reproducible)**  
+   - `dvc repro eda_full`
+   - `dvc repro train_model`
+   - `dvc repro grid_search`
+   - `dvc repro detect_drift`
+   Cada stage usa `dvc.yaml` y guarda artefactos en `models/registry`, `reports/*`, etc.
 
-```bash
-dvc repro train_model
-```
+10. **Pruebas automáticas**  
+    ```bash
+    python -m pytest -q
+    ```
+    - `tests/test_full_pipeline_integration.py` valida que el pipeline genere `models/registry/latest.json`.
+    - `tests/test_api.py` levanta el servicio y prueba `POST /predict`.
 
-Después, agrega `models/registry` al control de versiones (DVC o Git) y utiliza `models/registry/latest.json` como archivo de métricas para comparar ejecuciones (`dvc diff`, `dvc metrics show models/registry/latest.json`).
-   
+---
+
+## 5. FAQ / Problemas comunes
+
+| Problema | Solución |
+| --- | --- |
+| `ModuleNotFoundError: src.api` al arrancar Uvicorn | Asegúrate de ejecutar `uvicorn` desde `mlops_proyect/` o exporta `PYTHONPATH` apuntando a esa carpeta. |
+| `pytest` no existe | Instala dependencias (`pip install -r requirements.txt`) dentro del entorno activo. |
+| API no encuentra el modelo | Verifica que `models/registry/latest.json` exista (ejecutar pipeline), o exporta `MODEL_REGISTRY_METADATA_PATH` apuntando al archivo correcto. |
+| Quiero servir un modelo específico | Usa `MODEL_ARTIFACT_PATH=/ruta/a/mi_modelo.joblib` antes de ejecutar Uvicorn. |
+| Necesito sólo EDA | Ejecuta `python -m src.run_eda ...` o `dvc repro eda_full` y omite el pipeline. |
+
+---
+
+## 6. Resumen rápido de comandos
+
+| Acción | Comando |
+| --- | --- |
+| Instalar deps | `pip install -r requirements.txt` |
+| EDA completo | `python -m src.run_full_eda --raw ...` |
+| Pipeline + selección | `python -m src.full_pipeline --config config/params.yaml --no-report` |
+| MLflow UI | `mlflow ui --backend-store-uri file:mlruns` |
+| Grid search manual | `python -m src.modeling.grid_search --config config/params.yaml --output-dir reports/grid_search` |
+| API local | `uvicorn src.api.app:app --reload --host 0.0.0.0 --port 8000` |
+| Docker run | `docker run -p 8000:8000 -v $(pwd)/models:/app/models ml-service:latest` |
+| Drift | `python -m src.monitoring.data_drift --config config/params.yaml --registry models/registry/latest.json --out reports/drift` |
+| Tests | `python -m pytest -q` |
+
+Con este README tienes la **estructura**, el **paso a paso** y las **explicaciones** necesarias para reproducir el flujo completo, evaluar modelos y servir el mejor candidato mediante la API o Docker. ¡Listo para operar en cualquier entorno!***

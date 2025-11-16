@@ -25,22 +25,29 @@ preprocess:
 model:
   algorithm: "logreg"
   target: "caravan"
+  threshold: 0.20        # <<< recomendado para datasets muy desbalanceados
   logreg:
     C: 1.0
     penalty: "l2"
     max_iter: 500
+    class_weight: "balanced"
   rf:
     n_estimators: 300
     max_depth: 10
+    class_weight: "balanced"     # <<< añadido
   scoring: "roc_auc"
   gb:
     n_estimators: 200
     learning_rate: 0.05
     max_depth: 3
+    subsample: 0.9               # <<< reduce overfitting
+    min_samples_leaf: 3          # <<< mejora estabilidad
   svc:
     C: 1.0
     kernel: "rbf"
     gamma: "scale"
+    probability: true
+    class_weight: "balanced"     # <<< añadido
   knn:
     n_neighbors: 7
     weights: "distance"
@@ -51,7 +58,7 @@ tracking:
     enabled: true
     tracking_uri: "file:mlruns"
     experiment_name: "insurance_baseline"
-    run_name: "knn_run"
+    run_name: "insurance_run"
     tags:
       stage: "baseline"
       owner: "mlops_team"
@@ -59,3 +66,37 @@ tracking:
     artifact_path: "model"
   registry:
     dir: "models/registry"
+
+model_selection:
+  algorithms: ["logreg", "rf", "gb", "svc", "knn"]
+  grids:
+    logreg:
+      C: [0.1, 1.0, 10.0]
+      penalty: ["l2"]
+      class_weight: ["balanced"]
+      max_iter: [400]
+    rf:
+      n_estimators: [200, 400]
+      max_depth: [8, 12]
+      class_weight: ["balanced"]          # <<< añadido
+      min_samples_leaf: [2, 4]            # <<< mejora recall
+    gb:
+      n_estimators: [150, 250]
+      learning_rate: [0.05, 0.1]
+      max_depth: [3]
+      subsample: [0.8, 1.0]               # <<< recomendado
+      min_samples_leaf: [2, 4]
+    svc:
+      C: [0.5, 1.0]
+      gamma: ["scale"]
+      probability: [true]
+      class_weight: ["balanced"]          # <<< añadido
+    knn:
+      n_neighbors: [5, 7, 11]
+      weights: ["distance"]
+      metric: ["minkowski"]
+
+monitoring:
+  drift:
+    roc_auc_drop_threshold: 0.05
+    severity: 0.25
