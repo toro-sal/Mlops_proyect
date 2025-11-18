@@ -5,6 +5,24 @@ paths:
   report_html: reports/eda_clean.html
   report_css: reports/assets/css/report.css
 
+storage:
+  s3:
+    enabled: true
+    bucket: "mlops-jfts-artifacts"
+    region: "us-east-2"
+    prefix: "202502-equipo28"
+    profile: null
+    endpoint_url: "https://s3.us-east-2.amazonaws.com"
+  dvc:
+    auto_push: true
+    remote: "s3-prod"
+    stage_map:
+      train_model: train_model
+      eda_full: eda_full
+      grid_search: grid_search
+      detect_drift: detect_drift
+
+
 eda:
   sample_frac: 1.0
   target: "caravan"

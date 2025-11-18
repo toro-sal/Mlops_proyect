@@ -1,0 +1,47 @@
+schema: '2.0'
+stages:
+  eda_full:
+    cmd: "python -m src.run_full_eda --raw data/enriched/insurance_company_enriched.csv
+      --clean-out data/interim/insurance_clean.csv --raw-report reports/eda_raw.html
+      --clean-report reports/eda_clean.html --raw-fig-dir reports/figures/raw --clean-fig-dir
+      reports/figures/clean\n"
+    deps:
+    - path: data/enriched/insurance_company_enriched.csv
+      hash: md5
+      md5: b28acd98323e3f134f499e5903c8402a
+      size: 2538848
+    - path: src/data_proc/data_cleaner.py
+      hash: md5
+      md5: c4fa9c638b7e435888f4244270d545c3
+      size: 9921
+    - path: src/eda/eda_reporter.py
+      hash: md5
+      md5: 2aed2a61c1cd97624b5bf9fb8a095d20
+      size: 23547
+    - path: src/run_full_eda.py
+      hash: md5
+      md5: 6619f1b72889762aa067f3c362e55cff
+      size: 7167
+    outs:
+    - path: data/interim/insurance_clean.csv
+      hash: md5
+      md5: 2adf7f9dc8987e6ea698ef7cc69ae096
+      size: 2591491
+    - path: reports/eda_clean.html
+      hash: md5
+      md5: 86969509b9a590062d98df887242a735
+      size: 2053406
+    - path: reports/eda_raw.html
+      hash: md5
+      md5: 8cbfc682102c0012bfdc148d59ccb94c
+      size: 4106372
+    - path: reports/figures/clean
+      hash: md5
+      md5: d751713988987e9331980363e24189ce.dir
+      size: 0
+      nfiles: 0
+    - path: reports/figures/raw
+      hash: md5
+      md5: d751713988987e9331980363e24189ce.dir
+      size: 0
+      nfiles: 0

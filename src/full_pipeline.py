@@ -13,6 +13,7 @@ from sklearn.model_selection import ParameterGrid
 from src.data_proc.data_cleaner import CleanConfig, DataCleaner
 from src.eda.eda_reporter import EDAReport
 from src.modeling import ModelConfig, ModelTrainer
+from src.storage import build_pipeline_versioner
 from src.utils.seed import set_global_seed
 
 
@@ -256,10 +257,14 @@ def run_full_pipeline(
     model_cfg_raw = params.get("model", {})
     preferred_target = model_cfg_raw.get("target") or eda_cfg.get("target")
 
+    versioner = build_pipeline_versioner(params, stage_name="train_model", project_root=project_root)
+
     raw_rel = paths_cfg.get("raw")
     if not raw_rel:
         raise ValueError("El archivo RAW no está definido en paths.raw del YAML.")
     raw_path = (project_root / raw_rel).resolve()
+    if versioner:
+        versioner.ensure_local_artifact("raw", raw_path)
     if not raw_path.exists():
         raise FileNotFoundError(f"No se encontró el dataset crudo en {raw_path}")
 
@@ -379,7 +384,7 @@ def run_full_pipeline(
             "artifacts": result.artifacts,
         }
 
-    return {
+    outputs = {
         "raw_path": raw_path,
         "clean_path": interim_path,
         "report_path": report_path,
@@ -393,6 +398,23 @@ def run_full_pipeline(
         "confusion_matrix": result.confusion_matrix,
         "model_selection": selection_summary,
     }
+
+    if versioner:
+        stage_artifacts: Dict[str, Path] = {
+            "raw": raw_path,
+            "clean": interim_path,
+        }
+        if report_path:
+            stage_artifacts["reports"] = Path(report_path)
+        registry_dir = model_config.model_registry_dir
+        if registry_dir:
+            stage_artifacts["registry"] = Path(registry_dir)
+        registry_latest = result.artifacts.get("model_registry_latest")
+        if registry_latest:
+            stage_artifacts["registry_latest"] = Path(registry_latest)
+        versioner.finalize_stage(stage_artifacts)
+
+    return outputs
 
 
 def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:

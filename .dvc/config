@@ -1,7 +1,6 @@
-['core']
+[core]
     remote = s3-prod
-
 ['remote "s3-prod"']
-    url = s3://mlops-proyect-artifacts/dvcstore
-    profile = default
-    endpointurl = https://s3.amazonaws.com
+    url = s3://itesm-mna/202502-equipo28
+    endpointurl = https://s3.us-east-2.amazonaws.com
+    profile = equipo28

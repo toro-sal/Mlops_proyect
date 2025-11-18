@@ -55,6 +55,7 @@ mlops_proyect/
 ## 3. Configuración clave (`config/params.yaml`)
 
 - `paths`: ubicación de datos crudos, limpios, reportes y modelos.
+- `storage`: banderas para sincronizar automáticamente con S3/DVC (`storage.s3`, `storage.dvc`).
 - `eda`: columnas ID, categóricas, objetivo, títulos de reporte, etc.
 - `clean`: reglas de limpieza (threshold de NA, outliers, coerción numérica).
 - `preprocess`: imputaciones, escalado, split train/test.
@@ -198,6 +199,48 @@ Modificar este archivo es la forma principal de adaptar el proyecto a nuevos dat
 | EDA completo | `python -m src.run_full_eda --raw ...` |
 | Pipeline + selección | `python -m src.full_pipeline --config config/params.yaml --no-report` |
 | MLflow UI | `mlflow ui --backend-store-uri file:mlruns` |
+
+---
+
+## 7. Integración con S3 + versionamiento DVC
+
+1. **Configurar credenciales de AWS de forma segura**
+   ```bash
+   aws configure  # guarda AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY en ~/.aws/credentials
+   # o usar variables de entorno:
+   export AWS_ACCESS_KEY_ID=...
+   export AWS_SECRET_ACCESS_KEY=...
+   export AWS_SESSION_TOKEN=...   # si aplica
+   ```
+   > Nunca hardcodees llaves en el repositorio. `boto3` detecta automáticamente variables de entorno, perfiles y roles de IAM.
+
+2. **Activar la sincronización en `config/params.yaml`**
+   ```yaml
+   storage:
+     s3:
+       enabled: true
+       bucket: itesm-mna
+       region: us-east-2
+       prefix: 202502-equipo28
+       artifacts:
+         raw: 202502-equipo28/raw/insurance_company_enriched.csv   # opcional
+     dvc:
+       auto_push: true
+       remote: s3-prod
+   ```
+   - `storage.s3.enabled`: descarga el raw si no existe y sube `raw`, `clean`, reportes y `models/registry` al bucket tras cada ejecución del stage.
+   - `storage.dvc.auto_push`: ejecuta `dvc push <stage>` automáticamente (usa los nombres de `storage.dvc.stage_map` para cada etapa declarada en `dvc.yaml`).
+
+3. **Stage → comando DVC sugerido**
+
+| Stage (`dvc.yaml`) | Pipeline/Script | Comando para publicar versión |
+| --- | --- | --- |
+| `eda_full` | `python -m src.run_full_eda ...` | `dvc push eda_full -r s3-prod` |
+| `train_model` | `python -m src.full_pipeline ...` | `dvc push train_model -r s3-prod` |
+| `grid_search` | `python -m src.modeling.grid_search ...` | `dvc push grid_search -r s3-prod` |
+| `detect_drift` | `python -m src.monitoring.data_drift ...` | `dvc push detect_drift -r s3-prod` |
+
+Con esto tienes el dataset y los artefactos versionados en S3 sin exponer credenciales ni duplicar lógica en notebooks.
 | Grid search manual | `python -m src.modeling.grid_search --config config/params.yaml --output-dir reports/grid_search` |
 | API local | `uvicorn src.api.app:app --reload --host 0.0.0.0 --port 8000` |
 | Docker run | `docker run -p 8000:8000 -v $(pwd)/models:/app/models ml-service:latest` |
